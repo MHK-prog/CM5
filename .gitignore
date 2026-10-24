@@ -1,0 +1,10 @@
+.gradle/
+**/build/
+local.properties
+*.jks
+*.keystore
+release-key.jks
+.idea/
+.vscode/
+.cm5-local-repos.gradle
+gradle-wrapper-seed/

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7fbff">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'none';">
+  <title>CM 5.0 | کارنامه زبان‌آموزان</title>
+  <link rel="stylesheet" href="lib/Vazirmatn.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/cm5.css">
+</head>
+<body>
+  <div class="app">
+    <div class="header-wrapper">
+      <header>
+        <button id="menuBtn" type="button" aria-label="باز کردن منو">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+        </button>
+        <div class="brand"><h1 id="pageTitle">CM 5.0</h1><p class="sub">مدیریت کارنامه زبان‌آموزان</p></div>
+        <div class="pill"><span class="dot"></span><span id="saveStateText">ذخیره محلی</span></div>
+      </header>
+    </div>
+
+    <nav id="menuDrawer" class="drawer" aria-label="منوی اصلی">
+      <div class="bg-logo"><img src="img/logo.webp" alt="آموزشگاه زبان دماوند"></div>
+      <h2>CM 5.0</h2>
+      <ul>
+        <li><button class="tab active" data-page="page-classes" type="button">کلاس‌ها</button></li>
+        <li><button class="tab" data-page="page-students" type="button">زبان‌آموزان</button></li>
+        <li><button class="tab" data-page="page-report-cards" type="button">ثبت کارنامه</button></li>
+        <li><button class="tab" data-page="page-export" type="button">پشتیبان‌گیری</button></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section class="page active" id="page-classes">
+        <div class="card">
+          <div class="hd"><h2>مدیریت کلاس‌ها</h2><span id="classesCount" class="muted-count"></span></div>
+          <div class="bd">
+            <label for="classSelect">کلاس فعال</label>
+            <select id="classSelect"></select>
+            <div class="row class-actions">
+              <button class="btn primary" id="btnAddClass" type="button">کلاس جدید</button>
+              <button class="btn" id="btnRenameClass" type="button">تغییر نام</button>
+              <button class="btn pink" id="btnDeleteClass" type="button">حذف کلاس</button>
+            </div>
+          </div>
+        </div>
+        <div class="card info-card">
+          <div class="bd"><strong>کارنامه‌های مستقل</strong><p>اطلاعات کارنامه‌ها روی همین دستگاه ذخیره می‌شوند. برای انتقال یا نگهداری آن‌ها از بخش پشتیبان‌گیری فایل JSON بگیرید.</p></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-students">
+        <div class="card">
+          <div class="hd"><h2>زبان‌آموزان</h2><span id="studentsCount" class="muted-count"></span></div>
+          <div class="bd">
+            <form id="addStudentForm" class="row add-student-form">
+              <input id="newStudentName" class="w100" type="text" autocomplete="off" placeholder="نام و نام خانوادگی">
+              <button class="btn primary" type="submit">افزودن</button>
+            </form>
+            <div id="studentsEmpty" class="empty-state" hidden>هنوز زبان‌آموزی در این کلاس ثبت نشده است.</div>
+            <div id="studentsManageList" class="student-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="page-report-cards">
+        <div class="card mode-card">
+          <div class="mode-switch">
+            <button type="button" class="btn btn-switcher primary" id="btnRcModeStudent">👤 بر اساس زبان‌آموز</button>
+            <button type="button" class="btn btn-switcher" id="btnRcModeField">📊 بر اساس آیتم</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="hd"><h2>ثبت نمرات کارنامه</h2><span id="rcActiveClassName" class="muted-count"></span></div>
+          <div class="bd">
+            <div id="rcStudentContainer">
+              <div class="select-line">
+                <button class="btn nav-student" type="button" data-delta="-1" aria-label="زبان‌آموز قبلی">▶</button>
+                <select id="rcStudentSelect" aria-label="انتخاب زبان‌آموز"></select>
+                <button class="btn nav-student" type="button" data-delta="1" aria-label="زبان‌آموز بعدی">◀</button>
+              </div>
+              <div id="rcStudentFormList"></div>
+              <div class="total-box"><span>مجموع نمرات</span><strong id="rcCurrentTotal">۰ / ۲۰۰</strong></div>
+              <button class="btn primary full-btn" id="btnPreviewReport" type="button">پیش‌نمایش و خروجی کارنامه</button>
+            </div>
+            <div id="rcFieldContainer" hidden>
+              <div class="select-line"><select id="rcFieldSelect" aria-label="انتخاب آیتم نمره"></select></div>
+              <div id="rcFieldFormList"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="reportPreviewPanel" hidden>
+          <div class="hd preview-heading">
+            <h2>پیش‌نمایش کارنامه A5</h2>
+            <button class="btn ghost" id="btnBackToEditor" type="button">بازگشت به ثبت نمره</button>
+          </div>
+          <div class="bd">
+            <div id="reportCard" class="report-card" aria-live="polite"></div>
+            <div class="export-actions">
+              <button class="btn primary" id="btnSavePng" type="button">ذخیره تصویر PNG</button>
+              <button class="btn" id="btnPrintPdf" type="button">چاپ / ذخیره PDF</button>
+            </div>
+            <p class="export-hint">برای PDF، در پنجره‌ی چاپ گزینه‌ی ذخیره به‌صورت PDF را انتخاب کنید.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="page-export">
+        <div class="card">
+          <div class="hd"><h2>پشتیبان‌گیری و بازیابی</h2></div>
+          <div class="bd">
+            <p class="backup-intro">یک نسخه از کلاس‌ها، زبان‌آموزان، مشخصات و نمره‌های کارنامه ذخیره یا بازیابی کنید.</p>
+            <div class="row backup-actions">
+              <button class="btn primary w100" id="btnBackup" type="button">دریافت فایل پشتیبان JSON</button>
+              <button class="btn ghost w100" id="btnRestore" type="button">بازیابی فایل پشتیبان</button>
+              <button class="btn pink w100" id="btnWipe" type="button">حذف همه‌ی داده‌های برنامه</button>
+            </div>
+            <p class="backup-note">فایل پشتیبان CM 4.5.2 نیز قابل ورود است؛ نمرات روزانه به CM 5.0 منتقل نمی‌شوند.</p>
+            <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="bottom-bar"><div class="bottom-actions"><button class="btn primary" type="button" data-go="page-report-cards">ثبت کارنامه</button><button class="btn pink" id="quickExport" type="button">پشتیبان</button></div></div>
+  </div>
+
+  <div class="toast" id="toast"><div><span id="toastMsg"></span><button class="x" id="toastX" type="button" aria-label="بستن">✕</button></div></div>
+  <div id="modalOverlay" class="overlay" style="display:none"></div>
+
+  <div id="classModal" class="modal form-modal">
+    <div class="hd"><h2 id="classModalTitle">کلاس جدید</h2></div>
+    <div class="bd"><label for="classNameInput">نام کلاس</label><input id="classNameInput" type="text" autocomplete="off">
+      <div class="row modal-actions"><button class="btn ghost" id="cancelClassModal" type="button">انصراف</button><button class="btn primary" id="saveClassModal" type="button">ذخیره</button></div>
+    </div>
+  </div>
+
+  <div id="studentModal" class="modal form-modal student-modal">
+    <div class="hd"><h2>مشخصات زبان‌آموز</h2></div>
+    <div class="bd">
+      <label for="profileName">نام و نام خانوادگی</label><input id="profileName" type="text" autocomplete="off">
+      <label for="profileLevel">سطح آموزشی</label><input id="profileLevel" type="text" autocomplete="off" placeholder="برای نمونه: Family and Friends 2 (P2)">
+      <label for="profileNationalId">کد ملی</label><input id="profileNationalId" type="text" inputmode="numeric">
+      <label for="profileFatherName">نام پدر</label><input id="profileFatherName" type="text" autocomplete="off">
+      <label for="profilePhoto">عکس زبان‌آموز (اختیاری)</label><input id="profilePhoto" type="file" accept="image/*">
+      <div class="photo-actions"><img id="profilePhotoPreview" alt="پیش‌نمایش عکس" hidden><button class="btn ghost" id="removeStudentPhoto" type="button">حذف عکس</button></div>
+      <div class="row modal-actions"><button class="btn ghost" id="cancelStudentModal" type="button">انصراف</button><button class="btn primary" id="saveStudentModal" type="button">ذخیره مشخصات</button></div>
+    </div>
+  </div>
+
+  <div class="toast-space" aria-hidden="true"></div>
+  <script src="lib/html2canvas.min.js"></script>
+  <script src="js/cm5.js"></script>
+</body>
+</html>

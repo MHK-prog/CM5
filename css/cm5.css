@@ -1,0 +1,97 @@
+:root { --cm5-blue: #2563eb; --cm5-navy: #1e3a8a; }
+
+button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button { font-family: inherit; }
+.app { padding-top: 8px; }
+.header-wrapper { margin-bottom: 16px; }
+.brand { flex: 1; text-align: center; }
+.brand h1 { color: #1e293b; font-size: 20px; line-height: 1.2; }
+.brand .sub { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+.header-wrapper header { min-height: 50px; }
+#menuBtn { flex: 0 0 42px; }
+.muted-count { color: var(--muted); font-size: 12px; font-weight: 800; }
+.class-actions { margin-top: 12px; }
+.class-actions .btn { min-height: 40px; }
+.info-card { margin-top: 12px; }
+.info-card p, .backup-intro, .backup-note, .export-hint { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 6px 0 0; }
+.mode-card { margin-bottom: 12px; padding: 10px; }
+.mode-switch { display: flex; gap: 8px; }
+.mode-switch .btn { flex: 1; }
+.select-line { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; }
+.select-line select { flex: 1; min-width: 0; height: 42px; padding: 7px 12px; font-weight: 700; }
+.nav-student { min-height: 40px; padding-inline: 14px; }
+.score-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 6px 0; border-bottom: 1px solid #e8edf3; }
+.score-row label, .score-row strong { flex: 1; margin: 0; color: #334155; font-size: 13px; font-weight: 700; }
+.score-row input { width: 105px; flex: 0 0 105px; padding: 8px; border-radius: 8px; text-align: center; }
+.field-score-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.teacher-label { margin-top: 12px; color: #334155; font-weight: 800; }
+.teacher-description { min-height: 82px; resize: vertical; border-radius: 9px; }
+.total-box { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding: 11px; border-radius: 9px; background: #eff6ff; color: #1e3a8a; font-size: 14px; font-weight: 800; }
+.total-box strong { color: #16a34a; font-size: 16px; }
+.full-btn { width: 100%; min-height: 44px; margin-top: 13px; }
+.empty-state { padding: 18px 6px; color: var(--muted); text-align: center; font-size: 13px; }
+.student-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.student-row { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 7px 8px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+.student-number { width: 25px; flex: 0 0 25px; color: var(--muted); text-align: center; font-size: 12px; font-weight: 800; }
+.student-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.student-edit, .student-remove { min-height: 34px; padding: 5px 10px; font-size: 12px; }
+.add-student-form input { min-width: 150px; }
+.form-modal { padding: 0; }
+.form-modal .hd { flex: 0 0 auto; }
+.form-modal .bd { overflow-y: auto; }
+.modal-actions { margin-top: 14px; }
+.modal-actions .btn { min-height: 40px; }
+.student-modal { max-width: 420px; }
+.student-modal input { margin-bottom: 10px; }
+.student-modal input[type=file] { padding: 8px; font-size: 12px; }
+.photo-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.photo-actions img { width: 58px; height: 70px; object-fit: cover; border: 1px solid #cbd5e1; border-radius: 6px; }
+.photo-actions button[hidden] { display: none; }
+.preview-heading { flex-wrap: wrap; }
+#reportPreviewPanel { margin-top: 14px; scroll-margin-top: 12px; }
+.report-card { width: min(420px, 100%); min-height: 595px; margin: 0 auto; padding: 18px; overflow: hidden; direction: rtl; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.06); color: #1e293b; font-family: "Vazirmatn", Tahoma, sans-serif; }
+.report-header { display: flex; align-items: center; justify-content: space-between; gap: 9px; padding-bottom: 9px; margin-bottom: 10px; border-bottom: 2px solid #2563eb; }
+.report-logo { width: 50px; height: 50px; flex: 0 0 50px; object-fit: contain; }
+.school-info { flex: 1; text-align: center; }
+.school-info h3 { margin: 0 0 3px; color: #1e3a8a; font-size: 14px; }
+.school-info p { margin: 0; color: #64748b; font-size: 10px; }
+.report-photo { width: 48px; height: 60px; flex: 0 0 48px; object-fit: cover; border: 1px solid #cbd5e1; border-radius: 5px; background: #f8fafc; }
+.report-photo.no-photo { visibility: hidden; }
+.report-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 10px; margin-bottom: 10px; padding: 8px 9px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 10px; }
+.report-info-grid span { color: #64748b; }
+.report-info-grid strong { overflow-wrap: anywhere; }
+.report-table { width: 100%; margin: 0 0 9px; border-collapse: collapse; font-size: 10px; }
+.report-table th, .report-table td { padding: 4px 5px; border: 1px solid #e2e8f0; text-align: center; }
+.report-table th { background: #f1f5f9; color: #334155; font-weight: 700; }
+.report-table tbody tr:nth-child(even) { background: #f8fafc; }
+.report-table .report-number-cell { width: 28px; }
+.report-field-name { text-align: right !important; padding-right: 8px !important; }
+.report-total-row { background: #eff6ff !important; color: #1d4ed8; font-weight: 900; }
+.report-comment { min-height: 48px; padding: 8px; border-right: 3px solid #2563eb; border-radius: 4px; background: #eff6ff; color: #1e3a8a; font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.report-comment strong { margin-left: 4px; }
+.report-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 0 3px; color: #475569; font-size: 9px; }
+.export-actions { display: flex; gap: 9px; max-width: 420px; margin: 12px auto 0; }
+.export-actions .btn { flex: 1; min-height: 42px; font-size: 12px; }
+.export-hint { max-width: 420px; margin: 7px auto 0; font-size: 11px; }
+.backup-actions { margin-top: 12px; }
+.backup-actions .btn { min-height: 42px; }
+.backup-note { margin-top: 14px; }
+.toast-space { height: 8px; }
+[hidden] { display: none !important; }
+
+@media (min-width: 768px) {
+  .app { padding-bottom: 24px; }
+  .header-wrapper { margin-bottom: 20px; }
+  .student-modal { max-width: 460px; }
+}
+
+@page { size: A5 portrait; margin: 10mm; }
+@media print {
+  html, body { width: auto; height: auto; margin: 0; padding: 0; background: #fff !important; }
+  body * { visibility: hidden !important; }
+  #reportPreviewPanel, #reportPreviewPanel * { visibility: visible !important; }
+  #reportPreviewPanel { position: absolute !important; top: 0; left: 0; display: block !important; width: 100%; margin: 0 !important; border: 0 !important; box-shadow: none !important; }
+  #reportPreviewPanel > .hd, #reportPreviewPanel .export-actions, #reportPreviewPanel .export-hint { display: none !important; }
+  #reportPreviewPanel > .bd { padding: 0 !important; }
+  .report-card { width: 128mm !important; min-height: 190mm !important; margin: 0 auto !important; padding: 5mm !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+}

@@ -1,0 +1,41 @@
+name: Build signed CM 5.0 release APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-36 build-tools;36.0.0'
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/release-key.jks
+      - name: Build signed release APK
+        env:
+          CM5_KEYSTORE_FILE: ${{ github.workspace }}/app/release-key.jks
+          CM5_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CM5_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          CM5_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease
+      - uses: actions/upload-artifact@v6
+        with:
+          name: CM5-signed-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+      - name: Remove temporary keystore
+        if: always()
+        run: rm -f app/release-key.jks
