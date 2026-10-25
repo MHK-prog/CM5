@@ -56,10 +56,7 @@
         <div class="card">
           <div class="hd"><h2>زبان‌آموزان</h2><span id="studentsCount" class="muted-count"></span></div>
           <div class="bd">
-            <form id="addStudentForm" class="row add-student-form">
-              <input id="newStudentName" class="w100" type="text" autocomplete="off" placeholder="نام و نام خانوادگی">
-              <button class="btn primary" type="submit">افزودن</button>
-            </form>
+            <button class="btn primary full-btn" id="btnAddStudent" type="button">افزودن زبان‌آموز</button>
             <div id="studentsEmpty" class="empty-state" hidden>هنوز زبان‌آموزی در این کلاس ثبت نشده است.</div>
             <div id="studentsManageList" class="student-list"></div>
           </div>
@@ -102,9 +99,9 @@
             <div id="reportCard" class="report-card" aria-live="polite"></div>
             <div class="export-actions">
               <button class="btn primary" id="btnSavePng" type="button">ذخیره تصویر PNG</button>
-              <button class="btn" id="btnPrintPdf" type="button">چاپ / ذخیره PDF</button>
+              <button class="btn" id="btnSavePdf" type="button">ذخیره PDF</button>
             </div>
-            <p class="export-hint">برای PDF، در پنجره‌ی چاپ گزینه‌ی ذخیره به‌صورت PDF را انتخاب کنید.</p>
+            <p class="export-hint">فایل PDF در پوشهٔ بارگیری، پوشهٔ CM5 ذخیره می‌شود.</p>
           </div>
         </div>
       </section>
@@ -140,14 +137,25 @@
   </div>
 
   <div id="studentModal" class="modal form-modal student-modal">
-    <div class="hd"><h2>مشخصات زبان‌آموز</h2></div>
+    <div class="hd"><h2 id="studentModalTitle">افزودن زبان‌آموز</h2></div>
     <div class="bd">
-      <label for="profileName">نام و نام خانوادگی</label><input id="profileName" type="text" autocomplete="off">
-      <label for="profileLevel">سطح آموزشی</label><input id="profileLevel" type="text" autocomplete="off" placeholder="برای نمونه: Family and Friends 2 (P2)">
-      <label for="profileNationalId">کد ملی</label><input id="profileNationalId" type="text" inputmode="numeric">
+      <div class="student-photo-field">
+        <div class="student-photo-frame">
+          <img id="profilePhotoPreview" alt="پیش‌نمایش عکس زبان‌آموز" hidden>
+          <span id="profilePhotoPlaceholder" aria-hidden="true">👤</span>
+        </div>
+        <div class="student-photo-copy">
+          <strong>تصویر پروفایل</strong>
+          <span>قاب عمودی ۴:۵ · بارگذاری یا گرفتن عکس</span>
+          <input id="profilePhoto" type="file" accept="image/*" hidden>
+          <button class="btn ghost" id="chooseStudentPhoto" type="button">انتخاب یا گرفتن عکس</button>
+          <button class="btn ghost" id="removeStudentPhoto" type="button" hidden>حذف عکس</button>
+        </div>
+      </div>
+      <label for="profileFirstName">نام</label><input id="profileFirstName" type="text" autocomplete="given-name">
+      <label for="profileLastName">نام خانوادگی</label><input id="profileLastName" type="text" autocomplete="family-name">
+      <label for="profileNationalId">کد ملی</label><input id="profileNationalId" type="text" inputmode="numeric" maxlength="10" autocomplete="off">
       <label for="profileFatherName">نام پدر</label><input id="profileFatherName" type="text" autocomplete="off">
-      <label for="profilePhoto">عکس زبان‌آموز (اختیاری)</label><input id="profilePhoto" type="file" accept="image/*">
-      <div class="photo-actions"><img id="profilePhotoPreview" alt="پیش‌نمایش عکس" hidden><button class="btn ghost" id="removeStudentPhoto" type="button">حذف عکس</button></div>
       <div class="row modal-actions"><button class="btn ghost" id="cancelStudentModal" type="button">انصراف</button><button class="btn primary" id="saveStudentModal" type="button">ذخیره مشخصات</button></div>
     </div>
   </div>

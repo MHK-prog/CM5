@@ -22,9 +22,11 @@ const AppStore = {
     return globalThis.crypto?.randomUUID?.() || `cm5_${Date.now()}_${Math.random().toString(16).slice(2)}`;
   },
 
-  createStudent(fullName = '') {
+  createStudent(firstName = '', lastName = '') {
+    firstName = String(firstName).trim();
+    lastName = String(lastName).trim();
     return {
-      id: this.uid(), fullName: String(fullName).trim(), level: '', nationalId: '', fatherName: '', photo: '',
+      id: this.uid(), firstName, lastName, fullName: [firstName, lastName].filter(Boolean).join(' '), nationalId: '', fatherName: '', photo: '',
       reportCard: { scores: Array(RC_FIELDS.length).fill(''), teacherDesc: '' }
     };
   },
@@ -45,6 +47,13 @@ const AppStore = {
       const students = Array.isArray(raw.students) ? raw.students.map(rawStudent => {
         const student = rawStudent && typeof rawStudent === 'object' ? rawStudent : {};
         const report = student.reportCard && typeof student.reportCard === 'object' ? student.reportCard : {};
+        const legacyNameParts = String(student.fullName || student.name || '').trim().split(/\s+/).filter(Boolean);
+        const explicitFirstName = String(student.firstName || student.givenName || '').trim();
+        const explicitLastName = String(student.lastName || student.familyName || '').trim();
+        if (explicitFirstName && legacyNameParts[0] === explicitFirstName) legacyNameParts.shift();
+        const firstName = explicitFirstName || legacyNameParts.shift() || '';
+        const lastName = explicitLastName || legacyNameParts.join(' ');
+        const fullName = [firstName, lastName].filter(Boolean).join(' ') || String(student.fullName || student.name || '').trim();
         const rawScores = Array.isArray(report.scores) ? report.scores : [];
         const scores = RC_FIELDS.map((field, index) => {
           const value = String(rawScores[index] ?? '').trim();
@@ -54,8 +63,9 @@ const AppStore = {
         });
         return {
           id: String(student.id || this.uid()),
-          fullName: String(student.fullName || student.name || '').trim(),
-          level: String(student.level || ''),
+          firstName,
+          lastName,
+          fullName,
           nationalId: String(student.nationalId || ''),
           fatherName: String(student.fatherName || ''),
           photo: typeof student.photo === 'string' ? student.photo : '',
@@ -150,6 +160,14 @@ function openModal(id) {
 }
 
 function closeModal(id) {
+  const closesStudentModal = id
+    ? id === 'studentModal'
+    : Boolean($('studentModal')?.classList.contains('active'));
+  if (closesStudentModal) {
+    studentModalSession++;
+    photoLoadId++;
+    pendingPhotoLoad = Promise.resolve();
+  }
   if (id) $(id)?.classList.remove('active');
   else document.querySelectorAll('.modal.active').forEach(modal => modal.classList.remove('active'));
   syncOverlay();
@@ -259,41 +277,42 @@ function renderStudentsManage() {
   });
 }
 
-function addStudent(event) {
-  event.preventDefault();
-  const name = $('newStudentName').value.trim();
-  if (!name) return toast('نام زبان‌آموز را وارد کنید.');
-  AppStore.getSelectedClass().students.push(AppStore.createStudent(name));
-  AppStore.save();
-  $('newStudentName').value = '';
-  renderStudentsManage();
-  initReportCardPage();
-  $('newStudentName').focus();
-  toast('زبان‌آموز اضافه شد.');
-}
-
 let editingStudentId = null;
 let pendingPhoto = '';
-function openStudentModal(studentId) {
-  const student = AppStore.getSelectedClass()?.students.find(item => item.id === studentId);
-  if (!student) return;
-  editingStudentId = studentId;
-  pendingPhoto = student.photo || '';
-  $('profileName').value = student.fullName || '';
-  $('profileLevel').value = student.level || '';
-  $('profileNationalId').value = student.nationalId || '';
-  $('profileFatherName').value = student.fatherName || '';
+let photoLoadId = 0;
+let studentModalSession = 0;
+let pendingPhotoLoad = Promise.resolve();
+
+function openStudentModal(studentId = null) {
+  const student = studentId
+    ? AppStore.getSelectedClass()?.students.find(item => item.id === studentId)
+    : null;
+  if (studentId && !student) return;
+  studentModalSession++;
+  editingStudentId = student?.id || null;
+  photoLoadId++;
+  pendingPhotoLoad = Promise.resolve();
+  pendingPhoto = student?.photo || '';
+  $('studentModalTitle').textContent = student ? 'ویرایش زبان‌آموز' : 'افزودن زبان‌آموز';
+  $('profileFirstName').value = student?.firstName || '';
+  $('profileLastName').value = student?.lastName || '';
+  $('profileNationalId').value = student?.nationalId || '';
+  $('profileFatherName').value = student?.fatherName || '';
   $('profilePhoto').value = '';
   updatePhotoPreview();
   openModal('studentModal');
+  setTimeout(() => $('profileFirstName').focus(), 60);
 }
 
 function updatePhotoPreview() {
   const image = $('profilePhotoPreview');
+  const placeholder = $('profilePhotoPlaceholder');
   const removeButton = $('removeStudentPhoto');
   image.hidden = !pendingPhoto;
   image.src = pendingPhoto || '';
+  placeholder.hidden = Boolean(pendingPhoto);
   removeButton.hidden = !pendingPhoto;
+  $('chooseStudentPhoto').textContent = pendingPhoto ? 'تغییر عکس' : 'انتخاب یا گرفتن عکس';
 }
 
 function imageFileToDataUrl(file) {
@@ -301,14 +320,20 @@ function imageFileToDataUrl(file) {
     const objectUrl = URL.createObjectURL(file);
     const image = new Image();
     image.onload = () => {
-      const scale = Math.min(1, 600 / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = 480;
+      const height = 600;
+      const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+      const sourceWidth = width / scale;
+      const sourceHeight = height / scale;
+      const sourceX = (image.naturalWidth - sourceWidth) / 2;
+      const sourceY = (image.naturalHeight - sourceHeight) / 2;
       const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.width = width;
+      canvas.height = height;
       const context = canvas.getContext('2d');
       context.fillStyle = '#ffffff';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      context.fillRect(0, 0, width, height);
+      context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height);
       URL.revokeObjectURL(objectUrl);
       resolve(canvas.toDataURL('image/jpeg', 0.78));
     };
@@ -317,26 +342,54 @@ function imageFileToDataUrl(file) {
   });
 }
 
+function loadStudentPhoto(file) {
+  const cameraToken = window.CM5?.takeCameraPhotoToken?.() || '';
+  const requestId = ++photoLoadId;
+  pendingPhotoLoad = imageFileToDataUrl(file).then(dataUrl => {
+    if (requestId !== photoLoadId) return;
+    pendingPhoto = dataUrl;
+    updatePhotoPreview();
+  }).catch(() => {
+    if (requestId === photoLoadId) toast('خواندن عکس انجام نشد.');
+  }).finally(() => {
+    if (cameraToken) window.CM5?.finishCameraPhoto?.(cameraToken);
+  });
+  return pendingPhotoLoad;
+}
+
 async function saveStudentModal() {
-  const student = AppStore.getSelectedClass()?.students.find(item => item.id === editingStudentId);
-  if (!student) return closeModal('studentModal');
-  const name = $('profileName').value.trim();
-  if (!name) return toast('نام زبان‌آموز را وارد کنید.');
-  const file = $('profilePhoto').files?.[0];
-  if (file) {
-    try { pendingPhoto = await imageFileToDataUrl(file); }
-    catch { return toast('خواندن عکس انجام نشد.'); }
+  if ($('saveStudentModal').disabled) return;
+  const session = studentModalSession;
+  const saveButton = $('saveStudentModal');
+  saveButton.disabled = true;
+  try {
+    await pendingPhotoLoad;
+    if (session !== studentModalSession || !$('studentModal').classList.contains('active')) return;
+    const cls = AppStore.getSelectedClass();
+    if (!cls) return closeModal('studentModal');
+    const firstName = $('profileFirstName').value.trim();
+    const lastName = $('profileLastName').value.trim();
+    if (!firstName || !lastName) return toast('نام و نام خانوادگی را وارد کنید.');
+    let student = editingStudentId ? cls.students.find(item => item.id === editingStudentId) : null;
+    if (editingStudentId && !student) return closeModal('studentModal');
+    if (!student) {
+      student = AppStore.createStudent(firstName, lastName);
+      cls.students.push(student);
+    }
+    student.firstName = firstName;
+    student.lastName = lastName;
+    student.fullName = `${firstName} ${lastName}`;
+    student.nationalId = $('profileNationalId').value.trim();
+    student.fatherName = $('profileFatherName').value.trim();
+    student.photo = pendingPhoto;
+    AppStore.save();
+    closeModal('studentModal');
+    renderStudentsManage();
+    initReportCardPage();
+    toast('مشخصات ذخیره شد.');
+  } finally {
+    saveButton.disabled = false;
   }
-  student.fullName = name;
-  student.level = $('profileLevel').value.trim();
-  student.nationalId = $('profileNationalId').value.trim();
-  student.fatherName = $('profileFatherName').value.trim();
-  student.photo = pendingPhoto;
-  AppStore.save();
-  closeModal('studentModal');
-  renderStudentsManage();
-  initReportCardPage();
-  toast('مشخصات ذخیره شد.');
 }
 
 let rcCurrentMode = 'student';
@@ -514,7 +567,7 @@ function renderReportCard(student) {
   const details = document.createElement('div');
   details.className = 'report-info-grid';
   appendInfoItem(details, 'نام زبان‌آموز', student.fullName);
-  appendInfoItem(details, 'سطح آموزشی', student.level);
+  appendInfoItem(details, 'کلاس / سطح', AppStore.getSelectedClass()?.name || '');
   appendInfoItem(details, 'کد ملی', student.nationalId);
   appendInfoItem(details, 'نام پدر', student.fatherName);
   card.appendChild(details);
@@ -611,11 +664,9 @@ function saveDataUrl(dataUrl, fileName, mimeType) {
 async function exportReportPng() {
   const student = selectedReportStudent();
   if (!student) return toast('ابتدا یک زبان‌آموز انتخاب کنید.');
-  const card = $('reportCard');
   toast('در حال ساخت تصویر کارنامه…');
   try {
-    await document.fonts?.ready;
-    const canvas = await window.html2canvas(card, { backgroundColor: '#ffffff', scale: 3, useCORS: false, logging: false });
+    const canvas = await captureReportCanvas();
     saveDataUrl(canvas.toDataURL('image/png'), `CM5_${safeFilename(student.fullName)}.png`, 'image/png');
     toast('تصویر کارنامه ذخیره شد.');
   } catch {
@@ -623,11 +674,30 @@ async function exportReportPng() {
   }
 }
 
-function printReportPdf() {
-  if (!selectedReportStudent()) return toast('ابتدا یک زبان‌آموز انتخاب کنید.');
-  document.body.classList.add('print-mode');
-  if (window.CM5?.printReport) window.CM5.printReport();
-  else window.print();
+async function captureReportCanvas() {
+  await document.fonts?.ready;
+  return window.html2canvas($('reportCard'), {
+    backgroundColor: '#ffffff',
+    scale: 3,
+    useCORS: false,
+    logging: false
+  });
+}
+
+async function saveReportPdf() {
+  const student = selectedReportStudent();
+  if (!student) return toast('ابتدا یک زبان‌آموز انتخاب کنید.');
+  if (!window.CM5?.saveReportPdf) return toast('ذخیرهٔ PDF مستقیم در نسخهٔ اندروید در دسترس است.');
+  toast('در حال ساخت PDF…');
+  try {
+    const canvas = await captureReportCanvas();
+    const base64 = canvas.toDataURL('image/png').split(',')[1] || '';
+    const result = window.CM5.saveReportPdf(`CM5_${safeFilename(student.fullName)}.pdf`, base64);
+    if (result !== 'saved') throw new Error(result || 'save failed');
+    toast('PDF در پوشهٔ بارگیری / CM5 ذخیره شد.');
+  } catch {
+    toast('ساخت یا ذخیرهٔ PDF انجام نشد.');
+  }
 }
 
 function downloadText(content, fileName, mimeType) {
@@ -711,16 +781,22 @@ function bindEvents() {
   $('saveClassModal').addEventListener('click', saveClassModal);
   $('cancelClassModal').addEventListener('click', () => closeModal('classModal'));
   $('classNameInput').addEventListener('keydown', event => { if (event.key === 'Enter') saveClassModal(); });
-  $('addStudentForm').addEventListener('submit', addStudent);
+  $('btnAddStudent').addEventListener('click', () => openStudentModal());
   $('saveStudentModal').addEventListener('click', saveStudentModal);
   $('cancelStudentModal').addEventListener('click', () => closeModal('studentModal'));
+  $('chooseStudentPhoto').addEventListener('click', () => $('profilePhoto').click());
   $('profilePhoto').addEventListener('change', async event => {
     const file = event.target.files?.[0];
     if (!file) return;
-    try { pendingPhoto = await imageFileToDataUrl(file); updatePhotoPreview(); }
-    catch { toast('خواندن عکس انجام نشد.'); }
+    await loadStudentPhoto(file);
   });
-  $('removeStudentPhoto').addEventListener('click', () => { pendingPhoto = ''; $('profilePhoto').value = ''; updatePhotoPreview(); });
+  $('removeStudentPhoto').addEventListener('click', () => {
+    photoLoadId++;
+    pendingPhotoLoad = Promise.resolve();
+    pendingPhoto = '';
+    $('profilePhoto').value = '';
+    updatePhotoPreview();
+  });
   $('btnRcModeStudent').addEventListener('click', () => setRcMode('student'));
   $('btnRcModeField').addEventListener('click', () => setRcMode('field'));
   $('rcStudentSelect').addEventListener('change', renderRcStudentView);
@@ -729,7 +805,7 @@ function bindEvents() {
   $('btnPreviewReport').addEventListener('click', openReportPreview);
   $('btnBackToEditor').addEventListener('click', () => $('reportPreviewPanel').hidden = true);
   $('btnSavePng').addEventListener('click', exportReportPng);
-  $('btnPrintPdf').addEventListener('click', printReportPdf);
+  $('btnSavePdf').addEventListener('click', saveReportPdf);
   $('btnBackup').addEventListener('click', backup);
   $('btnRestore').addEventListener('click', () => $('restoreFile').click());
   $('restoreFile').addEventListener('change', restoreBackup);

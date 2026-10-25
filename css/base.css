@@ -188,14 +188,17 @@ header {
 .drawer {
   position: fixed; /* چسبیده به صفحه */
   top: 0;
-  right: -280px; /* مخفی در حالت عادی */
-  width: 200px;
-  height: 100%; /* ارتفاع کامل */
+  right: 0;
+  width: 75vw;
+  max-width: 420px;
+  height: 100vh;
+  height: 100dvh;
   background-color: #ffffff;
-  padding: 40px 16px 20px;
+  padding: calc(40px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px));
   box-shadow: -8px 0 25px rgba(0, 0, 0, 0.06);
   border-radius: 24px 0 0 24px;
-  transition: right 0.3s ease;
+  transform: translateX(110%);
+  transition: transform 0.3s ease;
   z-index: 100;
   box-sizing: border-box;
   overflow: hidden; /* برای اینکه لوگوی پس‌زمینه بیرون نزنه */
@@ -203,7 +206,7 @@ header {
 
 /* حالت باز شدن */
 .drawer.open {
-  right: 0;
+  transform: translateX(0);
 }
 
 /* لوگوی پس‌زمینه (واترمارک) */
@@ -534,17 +537,18 @@ textarea:focus {
   left: 50%;
   transform: translate(-50%, -50%);
   background: #fff;
-  padding: 20px;
+  padding: 16px;
   border-radius: 12px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   z-index: 100;
   display: none;
   flex-direction: column;
   gap: 12px;
-  width: 90%;
+  width: 90vw;
   max-width: 350px;
   max-height: calc(100vh - 24px);
-  overflow-y: auto;
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
 }
 
 .modal.active {
