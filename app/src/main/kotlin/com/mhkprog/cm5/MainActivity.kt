@@ -15,7 +15,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Build
 import android.provider.MediaStore
-import android.view.View
+import android.widget.FrameLayout
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
@@ -29,6 +30,7 @@ import java.util.UUID
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private lateinit var rootView: FrameLayout
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private var pendingCameraUri: Uri? = null
     private val temporaryCameraPhotoUris = mutableMapOf<String, Uri>()
@@ -46,32 +48,43 @@ class MainActivity : Activity() {
         @Suppress("DEPRECATION")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
-        } else {
-            window.decorView.systemUiVisibility =
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
-                    View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         }
 
         webView = WebView(this)
         webView.setBackgroundColor(Color.rgb(247, 251, 255))
-        @Suppress("DEPRECATION")
-        webView.setOnApplyWindowInsetsListener { view, insets ->
-            val (topInset, bottomInset) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val safeInsets = insets.getInsets(
-                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
+        rootView = FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(247, 251, 255))
+            addView(
+                webView,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                safeInsets.top to safeInsets.bottom
-            } else {
-                insets.systemWindowInsetTop to insets.systemWindowInsetBottom
-            }
-            view.setPadding(0, topInset, 0, bottomInset)
-            insets
+            )
         }
-        setContentView(webView)
-        webView.post { webView.requestApplyInsets() }
+        @Suppress("DEPRECATION")
+        rootView.setOnApplyWindowInsetsListener { _, insets ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val handledTypes = WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
+                val safeInsets = insets.getInsets(handledTypes)
+                val layoutParams = webView.layoutParams as FrameLayout.LayoutParams
+                layoutParams.setMargins(
+                    safeInsets.left,
+                    safeInsets.top,
+                    safeInsets.right,
+                    safeInsets.bottom
+                )
+                webView.layoutParams = layoutParams
+                WindowInsets.Builder(insets)
+                    .setInsets(handledTypes, android.graphics.Insets.NONE)
+                    .setInsetsIgnoringVisibility(WindowInsets.Type.systemBars(), android.graphics.Insets.NONE)
+                    .build()
+            } else {
+                insets
+            }
+        }
+        setContentView(rootView)
+        rootView.post { rootView.requestApplyInsets() }
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
