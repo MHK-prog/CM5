@@ -7,23 +7,19 @@ import android.content.ContentValues
 import android.content.ClipData
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
-import android.os.CancellationSignal
 import android.os.Handler
 import android.os.Looper
-import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.provider.DocumentsContract
 import android.widget.FrameLayout
 import android.view.View
 import android.view.ViewGroup
+import android.view.View.MeasureSpec
 import android.view.WindowInsets
-import android.print.PageRange
-import android.print.PrintAttributes
-import android.print.PrintDocumentInfo
-import android.print.PrintDocumentAdapter
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -34,6 +30,7 @@ import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Base64
@@ -414,10 +411,10 @@ class MainActivity : Activity() {
                       new Promise(resolve=>setTimeout(resolve,15000))
                     ]);
                     if(document.fonts?.ready) await Promise.race([document.fonts.ready,new Promise(resolve=>setTimeout(resolve,8000))]);
-                    return true;
+                    return Array.from(document.querySelectorAll('.report-card'),card=>Math.round(card.offsetTop));
                   })()""".trimIndent()
-                view.evaluateJavascript(waitForAssets) {
-                    mainHandler.post { writePrintWebViewToPdf(view, fileName) }
+                view.evaluateJavascript(waitForAssets) { rawOffsets ->
+                    mainHandler.post { writePrintWebViewToPdf(view, fileName, rawOffsets) }
                 }
             }
         }
@@ -430,87 +427,53 @@ class MainActivity : Activity() {
         )
     }
 
-    private fun writePrintWebViewToPdf(printView: WebView, fileName: String) {
-        val adapter = try {
-            printView.createPrintDocumentAdapter(fileName.removeSuffix(".pdf"))
-        } catch (error: Exception) {
-            finishReportPdfExport(false, error.message ?: "ساخت PDF انجام نشد.")
-            return
-        }
-        val attributes = PrintAttributes.Builder()
-            .setMediaSize(PrintAttributes.MediaSize.ISO_A5)
-            .setResolution(PrintAttributes.Resolution("cm5_pdf", "CM5 PDF", 300, 300))
-            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
-            .build()
-        adapter.onLayout(
-            null,
-            attributes,
-            CancellationSignal(),
-            object : PrintDocumentAdapter.LayoutResultCallback() {
-                override fun onLayoutFinished(info: PrintDocumentInfo, changed: Boolean) {
-                    if (info.pageCount < 1) {
-                        adapter.onFinish()
-                        finishReportPdfExport(false, "هیچ صفحه‌ای برای ذخیره پیدا نشد.")
-                        return
-                    }
-                    val tempFile = File(cacheDir, "cm5_report_${System.currentTimeMillis()}.pdf")
-                    val descriptor = try {
-                        ParcelFileDescriptor.open(
-                            tempFile,
-                            ParcelFileDescriptor.MODE_CREATE or
-                                ParcelFileDescriptor.MODE_TRUNCATE or
-                                ParcelFileDescriptor.MODE_READ_WRITE
+    private fun writePrintWebViewToPdf(printView: WebView, fileName: String, rawOffsets: String?) {
+        val tempFile = File(cacheDir, "cm5_report_${System.currentTimeMillis()}.pdf")
+        try {
+            val offsets = org.json.JSONArray(rawOffsets ?: "[]")
+            if (offsets.length() == 0) throw IllegalStateException("هیچ کارنامه‌ای برای ذخیره پیدا نشد.")
+
+            // The standalone HTML defines each report as a fixed A5 page in CSS pixels.
+            // Draw that WebView content into PDF pages directly, with no intermediate PNG.
+            val density = resources.displayMetrics.density
+            val cssPageWidth = 559
+            val cssPageHeight = 794
+            val viewWidth = (cssPageWidth * density).toInt().coerceAtLeast(1)
+            val viewHeight = (cssPageHeight * density).toInt().coerceAtLeast(1)
+            printView.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+            printView.measure(
+                MeasureSpec.makeMeasureSpec(viewWidth, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(viewHeight, MeasureSpec.EXACTLY)
+            )
+            printView.layout(0, 0, viewWidth, viewHeight)
+
+            val pdf = PdfDocument()
+            try {
+                FileOutputStream(tempFile).use { output ->
+                    for (index in 0 until offsets.length()) {
+                        val topCssPixels = offsets.optInt(index, index * cssPageHeight)
+                        val page = pdf.startPage(
+                            PdfDocument.PageInfo.Builder(420, 595, index + 1).create()
                         )
-                    } catch (error: Exception) {
-                        adapter.onFinish()
-                        finishReportPdfExport(false, error.message ?: "فایل موقت PDF ساخته نشد.")
-                        return
+                        page.canvas.save()
+                        page.canvas.scale(420f / viewWidth, 595f / viewHeight)
+                        printView.scrollTo(0, (topCssPixels * density).toInt())
+                        printView.draw(page.canvas)
+                        page.canvas.restore()
+                        pdf.finishPage(page)
                     }
-                    adapter.onWrite(
-                        arrayOf(PageRange(0, info.pageCount - 1)),
-                        descriptor,
-                        CancellationSignal(),
-                        object : PrintDocumentAdapter.WriteResultCallback() {
-                            override fun onWriteFinished(pages: Array<out PageRange>) {
-                                runCatching { descriptor.close() }
-                                val result = runCatching { copyReportPdfToDownloads(tempFile, fileName) }
-                                tempFile.delete()
-                                adapter.onFinish()
-                                finishReportPdfExport(
-                                    result.isSuccess,
-                                    result.exceptionOrNull()?.message ?: "ذخیره PDF انجام نشد."
-                                )
-                            }
-
-                            override fun onWriteFailed(error: CharSequence?) {
-                                runCatching { descriptor.close() }
-                                tempFile.delete()
-                                adapter.onFinish()
-                                finishReportPdfExport(false, error?.toString() ?: "نوشتن PDF انجام نشد.")
-                            }
-
-                            override fun onWriteCancelled() {
-                                runCatching { descriptor.close() }
-                                tempFile.delete()
-                                adapter.onFinish()
-                                finishReportPdfExport(false, "ساخت PDF لغو شد.")
-                            }
-                        }
-                    )
+                    pdf.writeTo(output)
                 }
-
-                override fun onLayoutFailed(error: CharSequence?) {
-                    adapter.onFinish()
-                    finishReportPdfExport(false, error?.toString() ?: "صفحه‌بندی PDF انجام نشد.")
-                }
-
-                override fun onLayoutCancelled() {
-                    adapter.onFinish()
-                    finishReportPdfExport(false, "ساخت PDF لغو شد.")
-                }
-            },
-            Bundle()
-        )
+            } finally {
+                pdf.close()
+            }
+            copyReportPdfToDownloads(tempFile, fileName)
+            tempFile.delete()
+            finishReportPdfExport(true, "PDF ذخیره شد.")
+        } catch (error: Exception) {
+            tempFile.delete()
+            finishReportPdfExport(false, error.message ?: "ساخت PDF انجام نشد.")
+        }
     }
 
     private fun copyReportPdfToDownloads(source: File, fileName: String) {

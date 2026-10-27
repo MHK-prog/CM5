@@ -686,14 +686,12 @@ async function inlineFontAssets(cssText, cssPath) {
 function reportPrintStyles() {
   return `
     @page { size: A5 portrait; margin: 0; }
-    @media print {
-      html, body { width: 148mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .class-report-pages { width: 148mm !important; margin: 0 !important; }
-      .report-card { box-sizing: border-box !important; width: 148mm !important; height: 210mm !important; min-height: 210mm !important; margin: 0 !important; padding: 8mm !important; overflow: hidden !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; break-after: page; page-break-after: always; }
-      .report-card:last-child { break-after: auto; page-break-after: auto; }
-      .report-photo { width: 30mm !important; height: 40mm !important; flex-basis: 30mm !important; }
-    }
+    html, body { width: 559px !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .class-report-pages { width: 559px !important; margin: 0 !important; }
+    .report-card { box-sizing: border-box !important; width: 559px !important; height: 794px !important; min-height: 794px !important; margin: 0 !important; padding: 30px !important; overflow: hidden !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; break-after: page; page-break-after: always; }
+    .report-card:last-child { break-after: auto; page-break-after: auto; }
+    .report-photo { width: 113px !important; height: 151px !important; flex-basis: 113px !important; }
   `;
 }
 

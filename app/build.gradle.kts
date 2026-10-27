@@ -19,6 +19,10 @@ android {
         versionName = "5.0.1"
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     signingConfigs {
         create("release") {
             if (!signingStoreFile.isNullOrBlank()) storeFile = file(signingStoreFile)
