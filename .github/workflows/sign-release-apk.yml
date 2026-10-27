@@ -1,10 +1,10 @@
-name: Build signed CM 5.0 release APK
+name: Build and publish signed Maallem Yar Damavand APK
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   release:
@@ -36,6 +36,17 @@ jobs:
           name: CM5-signed-release-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+      - name: Publish APK as a GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version_name=$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)"/\1/p' app/build.gradle.kts)
+          test -n "$version_name"
+          cp app/build/outputs/apk/release/app-release.apk MoeallemYarDamavand.apk
+          gh release create "v${version_name}" MoeallemYarDamavand.apk \
+            --target "$GITHUB_SHA" \
+            --title "معلم یار دماوند ${version_name}" \
+            --notes "برای نصب، فایل APK پیوست‌شده را دریافت کنید."
       - name: Remove temporary keystore
         if: always()
         run: rm -f app/release-key.jks

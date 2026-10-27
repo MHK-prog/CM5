@@ -142,7 +142,11 @@ function formatNumber(value) {
 }
 
 function closeMenu() {
-  $('menuDrawer')?.classList.remove('open');
+  const drawer = $('menuDrawer');
+  drawer?.classList.remove('open', 'dragging');
+  drawer?.style.removeProperty('transform');
+  $('modalOverlay')?.style.removeProperty('opacity');
+  $('modalOverlay')?.style.removeProperty('pointer-events');
   syncOverlay();
 }
 
@@ -321,7 +325,7 @@ function imageFileToDataUrl(file) {
     const image = new Image();
     image.onload = () => {
       const width = 480;
-      const height = 600;
+      const height = 640;
       const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
       const sourceWidth = width / scale;
       const sourceHeight = height / scale;
@@ -537,8 +541,7 @@ function appendInfoItem(container, label, value) {
   container.appendChild(item);
 }
 
-function renderReportCard(student) {
-  const card = $('reportCard');
+function renderReportCard(student, card = $('reportCard')) {
   card.replaceChildren();
   const max = RC_FIELDS.reduce((sum, field) => sum + field.max, 0);
   const total = getRcTotal(student);
@@ -624,11 +627,9 @@ function renderReportCard(student) {
 
   const footer = document.createElement('div');
   footer.className = 'report-footer';
-  const teacherSign = document.createElement('span');
-  teacherSign.textContent = 'امضای مدرس: ........................';
   const instituteSeal = document.createElement('span');
   instituteSeal.textContent = 'مهر آموزشگاه: ........................';
-  footer.append(teacherSign, instituteSeal);
+  footer.append(instituteSeal);
   card.appendChild(footer);
 }
 
@@ -661,44 +662,107 @@ function saveDataUrl(dataUrl, fileName, mimeType) {
   anchor.click();
 }
 
-async function exportReportPng() {
-  const student = selectedReportStudent();
-  if (!student) return toast('ابتدا یک زبان‌آموز انتخاب کنید.');
-  toast('در حال ساخت تصویر کارنامه…');
-  try {
-    const canvas = await captureReportCanvas();
-    saveDataUrl(canvas.toDataURL('image/png'), `CM5_${safeFilename(student.fullName)}.png`, 'image/png');
-    toast('تصویر کارنامه ذخیره شد.');
-  } catch {
-    toast('ساخت تصویر انجام نشد.');
+async function assetAsDataUrl(path, mimeType) {
+  const response = await fetch(path);
+  if (!response.ok) throw new Error(`asset ${path} unavailable`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + 0x8000, bytes.length)));
   }
+  return `data:${mimeType};base64,${btoa(binary)}`;
 }
 
-async function captureReportCanvas() {
-  await document.fonts?.ready;
-  return window.html2canvas($('reportCard'), {
-    backgroundColor: '#ffffff',
-    scale: 3,
-    useCORS: false,
-    logging: false
-  });
+async function inlineFontAssets(cssText, cssPath) {
+  const matches = [...cssText.matchAll(/url\((['"]?)([^'")]+)\1\)/g)];
+  for (const match of matches) {
+    const assetUrl = new URL(match[2], new URL(cssPath, document.baseURI));
+    const dataUrl = await assetAsDataUrl(assetUrl.href, 'font/woff2');
+    cssText = cssText.replace(match[0], `url("${dataUrl}")`);
+  }
+  return cssText;
+}
+
+function reportPrintStyles() {
+  return `
+    @page { size: A5 portrait; margin: 0; }
+    @media print {
+      html, body { width: 148mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .class-report-pages { width: 148mm !important; margin: 0 !important; }
+      .report-card { box-sizing: border-box !important; width: 148mm !important; height: 210mm !important; min-height: 210mm !important; margin: 0 !important; padding: 8mm !important; overflow: hidden !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; break-after: page; page-break-after: always; }
+      .report-card:last-child { break-after: auto; page-break-after: auto; }
+      .report-photo { width: 30mm !important; height: 40mm !important; flex-basis: 30mm !important; }
+    }
+  `;
+}
+
+async function buildClassReportHtml(cls) {
+  const [stylesResponse, fontResponse, logoDataUrl] = await Promise.all([
+    fetch('css/cm5.css'),
+    fetch('lib/Vazirmatn.css'),
+    assetAsDataUrl('img/logo.webp', 'image/webp')
+  ]);
+  if (!stylesResponse.ok || !fontResponse.ok) throw new Error('report styles unavailable');
+  const styles = await stylesResponse.text();
+  const fontStyles = await inlineFontAssets(await fontResponse.text(), 'lib/Vazirmatn.css');
+  const cardMarkup = cls.students.map(student => {
+    const stagingCard = document.createElement('div');
+    stagingCard.className = 'report-card';
+    renderReportCard(student, stagingCard);
+    stagingCard.querySelector('.report-logo')?.setAttribute('src', logoDataUrl);
+    return stagingCard.outerHTML;
+  }).join('\n');
+  return `<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(cls.name)} - کارنامه‌ها</title><style>:root{--muted:#5b6b82}\n${fontStyles}\n${styles}\n${reportPrintStyles()}</style></head>
+<body><main class="class-report-pages">${cardMarkup}</main></body></html>`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+function currentClassReportFileBase(cls) {
+  return `CM5_${safeFilename(cls.name || 'کلاس')}_کارنامه‌ها`;
+}
+
+async function saveClassReportSource() {
+  const cls = AppStore.getSelectedClass();
+  if (!cls?.students.length) return toast('این کلاس زبان‌آموزی برای خروجی ندارد.');
+  toast('در حال آماده‌سازی منبع HTML کارنامه‌ها…');
+  try {
+    const html = await buildClassReportHtml(cls);
+    downloadText(html, `${currentClassReportFileBase(cls)}.html`, 'text/html');
+    toast('منبع HTML کارنامه‌های کلاس ذخیره شد.');
+  } catch {
+    toast('ساخت منبع HTML انجام نشد.');
+  }
 }
 
 async function saveReportPdf() {
-  const student = selectedReportStudent();
-  if (!student) return toast('ابتدا یک زبان‌آموز انتخاب کنید.');
-  if (!window.CM5?.saveReportPdf) return toast('ذخیرهٔ PDF مستقیم در نسخهٔ اندروید در دسترس است.');
-  toast('در حال ساخت PDF…');
+  const cls = AppStore.getSelectedClass();
+  if (!cls?.students.length) return toast('این کلاس زبان‌آموزی برای خروجی ندارد.');
+  if (!window.CM5?.saveReportPdf) return toast('ساخت PDF مستقیم در نسخهٔ اندروید در دسترس است.');
+  toast('در حال ساخت PDF همهٔ کارنامه‌های کلاس…');
   try {
-    const canvas = await captureReportCanvas();
-    const base64 = canvas.toDataURL('image/png').split(',')[1] || '';
-    const result = window.CM5.saveReportPdf(`CM5_${safeFilename(student.fullName)}.pdf`, base64);
-    if (result !== 'saved') throw new Error(result || 'save failed');
-    toast('PDF در پوشهٔ بارگیری / CM5 ذخیره شد.');
+    const html = await buildClassReportHtml(cls);
+    const result = window.CM5.saveReportPdf(`${currentClassReportFileBase(cls)}.pdf`, html);
+    if (result !== 'started') throw new Error(result || 'save failed');
   } catch {
-    toast('ساخت یا ذخیرهٔ PDF انجام نشد.');
+    toast('ساخت PDF کارنامه‌های کلاس انجام نشد.');
   }
 }
+
+window.cm5ReportPdfFinished = (success, message = '') => {
+  toast(success ? 'PDF یکپارچهٔ کارنامه‌های کلاس ذخیره شد.' : (message || 'ساخت یا ذخیرهٔ PDF انجام نشد.'));
+};
+
+window.cm5UpdateCheckFinished = status => {
+  if (status === 'current') toast('نسخه فعلی برنامه به‌روز است.');
+  else if (status === 'not_published') toast('هنوز نسخه‌ای در بخش انتشار GitHub ثبت نشده است.');
+  else if (status === 'error') toast('بررسی نسخه جدید انجام نشد؛ اتصال اینترنت را بررسی کنید.');
+};
 
 function downloadText(content, fileName, mimeType) {
   if (window.CM5?.saveFile) {
@@ -715,10 +779,73 @@ function downloadText(content, fileName, mimeType) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function backup() {
-  downloadText(JSON.stringify(AppStore.state, null, 2), 'CM5_backup.json', 'application/json;charset=utf-8');
-  toast('فایل پشتیبان آماده شد.');
+let pendingBackupExport = null;
+
+function createBackupExport() {
+  const payload = JSON.parse(JSON.stringify(AppStore.state));
+  const photos = [];
+  payload.exportFormat = 'CM5_BACKUP';
+  payload.exportVersion = 1;
+  payload.exportedAt = new Date().toISOString();
+  payload.classes.forEach(cls => cls.students.forEach(student => {
+    const dataUrl = student.photo || '';
+    delete student.photo;
+    if (!dataUrl) return;
+    const match = dataUrl.match(/^data:(image\/[\w.+-]+);base64,(.+)$/);
+    if (!match) return;
+    const extension = match[1] === 'image/png' ? 'png' : 'jpg';
+    const fileName = `${safeFilename(student.id)}.${extension}`;
+    student.photoFile = `images/${fileName}`;
+    photos.push({ fileName, mimeType: match[1], base64: match[2] });
+  }));
+  return { json: JSON.stringify(payload, null, 2), photos };
 }
+
+function utf8ToBase64(value) {
+  return btoa(unescape(encodeURIComponent(value)));
+}
+
+function backup() {
+  pendingBackupExport = createBackupExport();
+  if (window.CM5?.chooseBackupFolder) {
+    const result = window.CM5.chooseBackupFolder();
+    if (result !== 'started') {
+      pendingBackupExport = null;
+      return toast(result || 'انتخاب پوشه پشتیبان شروع نشد.');
+    }
+    toast('یک پوشه برای ذخیره پشتیبان انتخاب کنید…');
+    return;
+  }
+  downloadText(pendingBackupExport.json, 'CM5_backup.json', 'application/json');
+  pendingBackupExport = null;
+  toast('فایل اطلاعات آماده شد؛ تصاویر در نسخه اندروید جداگانه صادر می‌شوند.');
+}
+
+window.cm5BackupFolderReady = success => {
+  if (!pendingBackupExport) return;
+  if (!success) {
+    pendingBackupExport = null;
+    toast('انتخاب پوشه پشتیبان لغو شد یا پوشه ساخته نشد.');
+    return;
+  }
+  try {
+    for (const photo of pendingBackupExport.photos) {
+      const result = window.CM5.writeBackupFile(`images/${photo.fileName}`, photo.mimeType, photo.base64);
+      if (result !== 'saved') throw new Error(result || 'image backup failed');
+    }
+    const result = window.CM5.writeBackupFile(
+      'CM5_backup.json',
+      'application/json',
+      utf8ToBase64(pendingBackupExport.json)
+    );
+    if (result !== 'saved') throw new Error(result || 'json backup failed');
+    toast(`پشتیبان JSON و ${pendingBackupExport.photos.length} تصویر در پوشه انتخاب‌شده ذخیره شد.`);
+  } catch (error) {
+    toast(error.message || 'ذخیره پوشه پشتیبان انجام نشد.');
+  } finally {
+    pendingBackupExport = null;
+  }
+};
 
 function readFileText(file) {
   return new Promise((resolve, reject) => {
@@ -733,20 +860,34 @@ async function restoreBackup(event) {
   const file = event.target.files?.[0];
   if (!file) return;
   try {
-    const imported = JSON.parse(await readFileText(file));
-    if (!Array.isArray(imported.classes)) throw new Error('missing classes');
-    AppStore.replace(imported);
-    $('reportPreviewPanel').hidden = true;
-    renderClasses();
-    renderStudentsManage();
-    initReportCardPage();
-    toast('کلاس‌ها و کارنامه‌ها بازیابی شدند.');
+    applyImportedBackup(JSON.parse(await readFileText(file)));
   } catch {
     toast('فایل پشتیبان معتبر نیست.');
   } finally {
     event.target.value = '';
   }
 }
+
+function applyImportedBackup(imported) {
+  if (!Array.isArray(imported?.classes)) throw new Error('missing classes');
+  AppStore.replace(imported);
+  $('reportPreviewPanel').hidden = true;
+  renderClasses();
+  renderStudentsManage();
+  initReportCardPage();
+  toast('کلاس‌ها، عکس‌ها و کارنامه‌ها بازیابی شدند.');
+}
+
+window.cm5BackupFolderLoaded = success => {
+  if (!success) return toast('پوشه پشتیبان معتبر نیست یا خواندن آن انجام نشد.');
+  try {
+    const json = window.CM5?.takeRestoredBackupJson?.();
+    if (!json) throw new Error('backup missing');
+    applyImportedBackup(JSON.parse(json));
+  } catch {
+    toast('بازیابی پوشه پشتیبان انجام نشد.');
+  }
+};
 
 function wipeData() {
   if (!confirm('همه‌ی کلاس‌ها، زبان‌آموزان و کارنامه‌ها حذف شوند؟')) return;
@@ -769,6 +910,11 @@ function bindEvents() {
   document.querySelectorAll('.tab').forEach(button => button.addEventListener('click', () => showPage(button.dataset.page)));
   document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => showPage(button.dataset.go)));
   $('quickExport').addEventListener('click', () => showPage('page-export'));
+  $('btnCheckUpdates').addEventListener('click', () => {
+    const result = window.CM5?.checkForUpdates?.();
+    if (result === 'started') toast('در حال بررسی نسخه جدید…');
+    else toast('بررسی نسخه جدید فقط در اپلیکیشن اندروید در دسترس است.');
+  });
   $('classSelect').addEventListener('change', event => {
     AppStore.state.selectedClassId = event.target.value;
     AppStore.save();
@@ -804,27 +950,102 @@ function bindEvents() {
   $('rcFieldSelect').addEventListener('change', renderRcFieldView);
   $('btnPreviewReport').addEventListener('click', openReportPreview);
   $('btnBackToEditor').addEventListener('click', () => $('reportPreviewPanel').hidden = true);
-  $('btnSavePng').addEventListener('click', exportReportPng);
+  $('btnSaveHtml').addEventListener('click', saveClassReportSource);
   $('btnSavePdf').addEventListener('click', saveReportPdf);
   $('btnBackup').addEventListener('click', backup);
+  $('btnRestoreFolder').addEventListener('click', () => {
+    const result = window.CM5?.chooseRestoreFolder?.();
+    if (result === 'started') toast('پوشه CM5_Backup را انتخاب کنید…');
+    else toast('بازیابی پوشه کامل فقط در اپلیکیشن اندروید در دسترس است.');
+  });
   $('btnRestore').addEventListener('click', () => $('restoreFile').click());
   $('restoreFile').addEventListener('change', restoreBackup);
   $('btnWipe').addEventListener('click', wipeData);
 
-  let touchX = 0;
-  let touchY = 0;
-  document.addEventListener('touchstart', event => {
-    touchX = event.touches[0]?.clientX || 0;
-    touchY = event.touches[0]?.clientY || 0;
-  }, { passive: true });
-  document.addEventListener('touchend', event => {
-    const touch = event.changedTouches[0];
-    if (!touch || touchX < window.innerWidth * 0.65) return;
-    if (touchX - touch.clientX > 55 && Math.abs(touchY - touch.clientY) < 80) {
-      $('menuDrawer').classList.add('open');
-      syncOverlay();
+  let drawerDrag = null;
+  let suppressDrawerClick = false;
+  document.addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'touch' || document.querySelector('.modal.active')) return;
+    const drawer = $('menuDrawer');
+    const wasOpen = drawer.classList.contains('open');
+    const startedInsideDrawer = drawer.contains(event.target);
+    if (wasOpen ? !startedInsideDrawer : event.clientX < window.innerWidth - 24) return;
+    const width = drawer.getBoundingClientRect().width;
+    if (!width) return;
+    drawerDrag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      progress: wasOpen ? 1 : 0,
+      wasOpen,
+      width,
+      moved: false
+    };
+    drawer.classList.add('dragging');
+    if (!wasOpen) drawer.classList.remove('open');
+    drawer.style.transform = wasOpen ? 'translateX(0%)' : 'translateX(110%)';
+    const overlay = $('modalOverlay');
+    overlay.style.display = 'block';
+    overlay.style.opacity = wasOpen ? '1' : '0';
+    overlay.style.pointerEvents = 'none';
+    if (event.target instanceof Element && event.target.setPointerCapture) {
+      try { event.target.setPointerCapture(event.pointerId); } catch {}
     }
-  }, { passive: true });
+  }, true);
+
+  document.addEventListener('pointermove', event => {
+    if (!drawerDrag || event.pointerId !== drawerDrag.pointerId) return;
+    const horizontal = Math.abs(event.clientX - drawerDrag.startX);
+    const vertical = Math.abs(event.clientY - drawerDrag.startY);
+    if (vertical > horizontal && vertical > 12) {
+      $('menuDrawer').classList.remove('dragging');
+      $('menuDrawer').style.removeProperty('transform');
+      $('modalOverlay').style.removeProperty('opacity');
+      $('modalOverlay').style.removeProperty('pointer-events');
+      $('modalOverlay').style.display = drawerDrag.wasOpen ? 'block' : 'none';
+      drawerDrag = null;
+      return;
+    }
+    if (horizontal > 3) {
+      drawerDrag.moved = true;
+      event.preventDefault();
+    }
+    const delta = drawerDrag.wasOpen
+      ? event.clientX - drawerDrag.startX
+      : drawerDrag.startX - event.clientX;
+    const maxDistance = drawerDrag.width * 1.1;
+    drawerDrag.progress = Math.max(0, Math.min(1, drawerDrag.wasOpen
+      ? 1 - delta / maxDistance
+      : delta / maxDistance));
+    $('menuDrawer').style.transform = `translateX(${110 * (1 - drawerDrag.progress)}%)`;
+    $('modalOverlay').style.opacity = String(drawerDrag.progress);
+  }, { capture: true, passive: false });
+
+  const finishDrawerDrag = event => {
+    if (!drawerDrag || event.pointerId !== drawerDrag.pointerId) return;
+    const shouldOpen = drawerDrag.progress >= 0.42;
+    const moved = drawerDrag.moved;
+    const drawer = $('menuDrawer');
+    drawer.classList.toggle('open', shouldOpen);
+    drawer.classList.remove('dragging');
+    drawer.style.removeProperty('transform');
+    $('modalOverlay').style.removeProperty('opacity');
+    $('modalOverlay').style.removeProperty('pointer-events');
+    drawerDrag = null;
+    syncOverlay();
+    if (moved) {
+      suppressDrawerClick = true;
+      setTimeout(() => { suppressDrawerClick = false; }, 350);
+    }
+  };
+  document.addEventListener('pointerup', finishDrawerDrag, true);
+  document.addEventListener('pointercancel', finishDrawerDrag, true);
+  document.addEventListener('click', event => {
+    if (!suppressDrawerClick) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressDrawerClick = false;
+  }, true);
 }
 
 AppStore.load();

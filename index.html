@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f7fbff">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'none';">
-  <title>CM 5.0 | کارنامه زبان‌آموزان</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self';">
+  <title>معلم یار دماوند | کارنامه زبان‌آموزان</title>
   <link rel="stylesheet" href="lib/Vazirmatn.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/cm5.css">
@@ -17,14 +17,14 @@
         <button id="menuBtn" type="button" aria-label="باز کردن منو">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
         </button>
-        <div class="brand"><h1 id="pageTitle">CM 5.0</h1><p class="sub">مدیریت کارنامه زبان‌آموزان</p></div>
+        <div class="brand"><h1 id="pageTitle">معلم یار دماوند</h1><p class="sub">مدیریت کارنامه زبان‌آموزان</p></div>
         <div class="pill"><span class="dot"></span><span id="saveStateText">ذخیره محلی</span></div>
       </header>
     </div>
 
     <nav id="menuDrawer" class="drawer" aria-label="منوی اصلی">
       <div class="bg-logo"><img src="img/logo.webp" alt="آموزشگاه زبان دماوند"></div>
-      <h2>CM 5.0</h2>
+      <h2>معلم یار دماوند</h2>
       <ul>
         <li><button class="tab active" data-page="page-classes" type="button">کلاس‌ها</button></li>
         <li><button class="tab" data-page="page-students" type="button">زبان‌آموزان</button></li>
@@ -48,7 +48,7 @@
           </div>
         </div>
         <div class="card info-card">
-          <div class="bd"><strong>کارنامه‌های مستقل</strong><p>اطلاعات کارنامه‌ها روی همین دستگاه ذخیره می‌شوند. برای انتقال یا نگهداری آن‌ها از بخش پشتیبان‌گیری فایل JSON بگیرید.</p></div>
+          <div class="bd"><strong>کارنامه‌های مستقل</strong><p>اطلاعات کارنامه‌ها روی همین دستگاه ذخیره می‌شوند. برای انتقال یا نگهداری اطلاعات و عکس‌ها از بخش پشتیبان‌گیری پوشهٔ کامل بگیرید.</p></div>
         </div>
       </section>
 
@@ -98,10 +98,10 @@
           <div class="bd">
             <div id="reportCard" class="report-card" aria-live="polite"></div>
             <div class="export-actions">
-              <button class="btn primary" id="btnSavePng" type="button">ذخیره تصویر PNG</button>
-              <button class="btn" id="btnSavePdf" type="button">ذخیره PDF</button>
+              <button class="btn ghost" id="btnSaveHtml" type="button">ذخیره منبع HTML</button>
+              <button class="btn primary" id="btnSavePdf" type="button">ذخیره PDF کل کلاس</button>
             </div>
-            <p class="export-hint">فایل PDF در پوشهٔ بارگیری، پوشهٔ CM5 ذخیره می‌شود.</p>
+            <p class="export-hint">برای هر زبان‌آموز یک صفحه A5 در فایل PDF کلاس ذخیره می‌شود. فایل منبع HTML نیز قابل دریافت است.</p>
           </div>
         </div>
       </section>
@@ -112,11 +112,13 @@
           <div class="bd">
             <p class="backup-intro">یک نسخه از کلاس‌ها، زبان‌آموزان، مشخصات و نمره‌های کارنامه ذخیره یا بازیابی کنید.</p>
             <div class="row backup-actions">
-              <button class="btn primary w100" id="btnBackup" type="button">دریافت فایل پشتیبان JSON</button>
+              <button class="btn primary w100" id="btnBackup" type="button">ذخیره پوشه پشتیبان (JSON و تصاویر)</button>
+              <button class="btn ghost w100" id="btnCheckUpdates" type="button">بررسی نسخه جدید برنامه</button>
+              <button class="btn ghost w100" id="btnRestoreFolder" type="button">بازیابی پوشه پشتیبان کامل</button>
               <button class="btn ghost w100" id="btnRestore" type="button">بازیابی فایل پشتیبان</button>
               <button class="btn pink w100" id="btnWipe" type="button">حذف همه‌ی داده‌های برنامه</button>
             </div>
-            <p class="backup-note">فایل پشتیبان CM 4.5.2 نیز قابل ورود است؛ نمرات روزانه به CM 5.0 منتقل نمی‌شوند.</p>
+            <p class="backup-note">پوشهٔ خروجی شامل فایل JSON و تصاویر جداگانه است. برای بازیابی کامل، همان پوشهٔ CM5_Backup را انتخاب کنید. فایل پشتیبان CM 4.5.2 نیز قابل ورود است.</p>
             <input type="file" id="restoreFile" accept="application/json,.json" hidden>
           </div>
         </div>
@@ -146,7 +148,7 @@
         </div>
         <div class="student-photo-copy">
           <strong>تصویر پروفایل</strong>
-          <span>قاب عمودی ۴:۵ · بارگذاری یا گرفتن عکس</span>
+          <span>قاب عمودی ۳:۴ · بارگذاری یا گرفتن عکس</span>
           <input id="profilePhoto" type="file" accept="image/*" hidden>
           <button class="btn ghost" id="chooseStudentPhoto" type="button">انتخاب یا گرفتن عکس</button>
           <button class="btn ghost" id="removeStudentPhoto" type="button" hidden>حذف عکس</button>
@@ -161,7 +163,6 @@
   </div>
 
   <div class="toast-space" aria-hidden="true"></div>
-  <script src="lib/html2canvas.min.js"></script>
   <script src="js/cm5.js"></script>
 </body>
 </html>

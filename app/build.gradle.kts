@@ -15,8 +15,8 @@ android {
         applicationId = "com.mhkprog.cm5"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "5.0.0"
+        versionCode = 2
+        versionName = "5.0.1"
     }
 
     signingConfigs {

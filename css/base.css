@@ -204,6 +204,9 @@ header {
   overflow: hidden; /* برای اینکه لوگوی پس‌زمینه بیرون نزنه */
 }
 
+.drawer.dragging { transition: none; }
+body { touch-action: pan-y; }
+
 /* حالت باز شدن */
 .drawer.open {
   transform: translateX(0);

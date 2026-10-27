@@ -44,7 +44,7 @@ button { font-family: inherit; }
 .student-modal { width: 90vw; max-width: 420px; }
 .student-modal input:not([type=file]) { margin-bottom: 10px; }
 .student-photo-field { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 12px; border: 1px solid #dbe5f2; border-radius: 12px; background: #f8fafc; }
-.student-photo-frame { display: grid; width: 76px; flex: 0 0 76px; aspect-ratio: 4 / 5; place-items: center; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 9px; background: #eaf1fb; color: #6b7c93; }
+.student-photo-frame { display: grid; width: 76px; flex: 0 0 76px; aspect-ratio: 3 / 4; place-items: center; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 9px; background: #eaf1fb; color: #6b7c93; }
 .student-photo-frame img { width: 100%; height: 100%; object-fit: cover; }
 .student-photo-frame span { font-size: 30px; }
 .student-photo-copy { display: grid; min-width: 0; flex: 1; gap: 6px; }
@@ -60,7 +60,7 @@ button { font-family: inherit; }
 .school-info { flex: 1; text-align: center; }
 .school-info h3 { margin: 0 0 3px; color: #1e3a8a; font-size: 14px; }
 .school-info p { margin: 0; color: #64748b; font-size: 10px; }
-.report-photo { width: 48px; height: 60px; flex: 0 0 48px; object-fit: cover; border: 1px solid #cbd5e1; border-radius: 5px; background: #f8fafc; }
+.report-photo { width: 48px; height: 64px; flex: 0 0 48px; object-fit: cover; border: 1px solid #cbd5e1; border-radius: 5px; background: #f8fafc; }
 .report-photo.no-photo { visibility: hidden; }
 .report-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 10px; margin-bottom: 10px; padding: 8px 9px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 10px; }
 .report-info-grid span { color: #64748b; }
@@ -78,6 +78,7 @@ button { font-family: inherit; }
 .export-actions { display: flex; gap: 9px; max-width: 420px; margin: 12px auto 0; }
 .export-actions .btn { flex: 1; min-height: 42px; font-size: 12px; }
 .export-hint { max-width: 420px; margin: 7px auto 0; font-size: 11px; }
+.export-actions .btn { white-space: normal; line-height: 1.5; }
 .backup-actions { margin-top: 12px; }
 .backup-actions .btn { min-height: 42px; }
 .backup-note { margin-top: 14px; }
