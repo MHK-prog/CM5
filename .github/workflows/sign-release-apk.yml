@@ -2,6 +2,9 @@ name: Build and publish signed Maallem Yar Damavand APK
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
