@@ -733,8 +733,8 @@ async function saveClassReportSource() {
     const html = await buildClassReportHtml(cls);
     downloadText(html, `${currentClassReportFileBase(cls)}.html`, 'text/html');
     toast('منبع HTML کارنامه‌های کلاس ذخیره شد.');
-  } catch {
-    toast('ساخت منبع HTML انجام نشد.');
+  } catch (error) {
+    toast(error?.message || 'ساخت منبع HTML انجام نشد.');
   }
 }
 
@@ -747,8 +747,8 @@ async function saveReportPdf() {
     const html = await buildClassReportHtml(cls);
     const result = window.CM5.saveReportPdf(`${currentClassReportFileBase(cls)}.pdf`, html);
     if (result !== 'started') throw new Error(result || 'save failed');
-  } catch {
-    toast('ساخت PDF کارنامه‌های کلاس انجام نشد.');
+  } catch (error) {
+    toast(error?.message || 'ساخت PDF کارنامه‌های کلاس انجام نشد.');
   }
 }
 

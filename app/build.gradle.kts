@@ -13,10 +13,10 @@ android {
 
     defaultConfig {
         applicationId = "com.mhkprog.cm5"
-        minSdk = 29
+        minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "5.0.1"
+        versionCode = 3
+        versionName = "5.0.2"
     }
 
     buildFeatures {

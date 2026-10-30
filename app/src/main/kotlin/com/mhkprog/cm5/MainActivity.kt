@@ -1,21 +1,25 @@
 package com.mhkprog.cm5
 
 import android.annotation.SuppressLint
+import android.Manifest
 import android.app.AlertDialog
 import android.app.Activity
 import android.content.ContentValues
 import android.content.ClipData
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.provider.DocumentsContract
 import android.widget.FrameLayout
+import android.widget.Toast
 import android.view.View
 import android.view.ViewGroup
 import android.view.View.MeasureSpec
@@ -31,6 +35,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Base64
@@ -59,6 +64,8 @@ class MainActivity : Activity() {
     private val filePickerRequestCode = 5105
     private val backupFolderRequestCode = 5205
     private val restoreFolderRequestCode = 5206
+    private val legacyStoragePermissionRequestCode = 5307
+    @Volatile private var legacyStoragePermissionRequestActive = false
     private val updateApiUrl = "https://api.github.com/repos/MHK-prog/CM5/releases/latest"
     private val releaseDownloadUrl = "https://github.com/MHK-prog/CM5/releases/latest/download/MoeallemYarDamavand.apk"
 
@@ -154,7 +161,9 @@ class MainActivity : Activity() {
                 )
                 if (!acceptsJson) {
                     val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-                    if (cameraIntent.resolveActivity(packageManager) != null) {
+                    val canCapturePhoto = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ||
+                        checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                    if (canCapturePhoto && cameraIntent.resolveActivity(packageManager) != null) {
                         createCameraCaptureUri()?.let { captureUri ->
                             pendingCameraUri = captureUri
                             cameraIntent.apply {
@@ -247,8 +256,10 @@ class MainActivity : Activity() {
         val selectedUri = if (resultCode == RESULT_OK) data?.data ?: captureUri else null
         if (captureUri != null) {
             if (selectedUri == captureUri) {
-                val completed = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
-                contentResolver.update(captureUri, completed, null, null)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val completed = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+                    contentResolver.update(captureUri, completed, null, null)
+                }
                 val token = UUID.randomUUID().toString()
                 synchronized(cameraPhotoLock) {
                     temporaryCameraPhotoUris[token] = captureUri
@@ -268,10 +279,41 @@ class MainActivity : Activity() {
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, "CM5_Profile_${System.currentTimeMillis()}.jpg")
             put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/CM5")
-            put(MediaStore.MediaColumns.IS_PENDING, 1)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/CM5")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
         }
         return contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+    }
+
+    private fun ensureLegacyStoragePermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ||
+            checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        ) return true
+
+        mainHandler.post {
+            if (legacyStoragePermissionRequestActive) return@post
+            legacyStoragePermissionRequestActive = true
+            requestPermissions(
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                legacyStoragePermissionRequestCode
+            )
+        }
+        return false
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != legacyStoragePermissionRequestCode) return
+        legacyStoragePermissionRequestActive = false
+        val message = if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            "مجوز ذخیره داده شد؛ دوباره دکمه ذخیره را بزنید."
+        } else {
+            "برای ذخیره فایل در گوشی، مجوز دسترسی به حافظه لازم است."
+        }
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     private fun discardPendingCameraCapture() {
@@ -481,23 +523,44 @@ class MainActivity : Activity() {
             .replace(Regex("[^\\p{L}\\p{N}._-]"), "_")
             .take(100)
             .ifBlank { "CM5_reports.pdf" }
-        val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, safeName)
-            put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/CM5")
-            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        writeToDownloads(safeName, "application/pdf") { output ->
+            FileInputStream(source).use { input -> input.copyTo(output) }
         }
-        val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            ?: throw IllegalStateException("ساخت فایل در پوشه بارگیری انجام نشد.")
-        try {
-            FileInputStream(source).use { input ->
-                contentResolver.openOutputStream(uri)?.use { output -> input.copyTo(output) }
-                    ?: throw IllegalStateException("فایل PDF برای نوشتن باز نشد.")
+    }
+
+    private fun writeToDownloads(fileName: String, mimeType: String, writeContent: (OutputStream) -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/CM5")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
-            val completed = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
-            contentResolver.update(uri, completed, null, null)
+            val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: throw IllegalStateException("ساخت فایل در پوشه بارگیری انجام نشد.")
+            try {
+                contentResolver.openOutputStream(uri)?.use(writeContent)
+                    ?: throw IllegalStateException("فایل خروجی برای نوشتن باز نشد.")
+                val completed = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+                contentResolver.update(uri, completed, null, null)
+            } catch (error: Exception) {
+                runCatching { contentResolver.delete(uri, null, null) }
+                throw error
+            }
+            return
+        }
+
+        @Suppress("DEPRECATION")
+        val downloadsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val appDirectory = File(downloadsDirectory, "CM5")
+        if (!appDirectory.isDirectory && !appDirectory.mkdirs()) {
+            throw IllegalStateException("ساخت پوشه بارگیری CM5 انجام نشد.")
+        }
+        val destination = File(appDirectory, fileName)
+        try {
+            FileOutputStream(destination).use(writeContent)
         } catch (error: Exception) {
-            runCatching { contentResolver.delete(uri, null, null) }
+            destination.delete()
             throw error
         }
     }
@@ -603,21 +666,12 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun saveFile(fileName: String, mimeType: String, encodedData: String): String {
             return try {
+                if (!ensureLegacyStoragePermission()) {
+                    return "برای ذخیره فایل، مجوز دسترسی به حافظه را بدهید و دوباره ذخیره را بزنید."
+                }
                 val safeName = fileName.replace(Regex("[^\\p{L}\\p{N}._-]"), "_").take(80).ifBlank { "CM5-file" }
                 val bytes = Base64.getDecoder().decode(encodedData)
-                val values = ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, safeName)
-                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/CM5")
-                    put(MediaStore.MediaColumns.IS_PENDING, 1)
-                }
-                val resolver = contentResolver
-                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    ?: return "ذخیره در پوشه‌ی بارگیری انجام نشد."
-                resolver.openOutputStream(uri)?.use { output -> output.write(bytes) }
-                    ?: return "فایل خروجی باز نشد."
-                val completed = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
-                resolver.update(uri, completed, null, null)
+                writeToDownloads(safeName, mimeType) { output -> output.write(bytes) }
                 "saved"
             } catch (error: Exception) {
                 error.message ?: "ذخیره‌ی فایل انجام نشد."
@@ -627,6 +681,9 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun saveReportPdf(fileName: String, html: String): String {
             if (html.isBlank()) return "محتوای کارنامه خالی است."
+            if (!ensureLegacyStoragePermission()) {
+                return "برای ذخیره PDF، مجوز دسترسی به حافظه را بدهید و دوباره دکمه ذخیره را بزنید."
+            }
             val canStart = synchronized(reportPdfLock) {
                 if (reportPdfExportInProgress) false
                 else {
